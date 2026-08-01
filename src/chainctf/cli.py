@@ -18,6 +18,7 @@ from .core import (
     markdown_report,
     verify_evidence,
 )
+from .playbooks import run_proxy_upgrade_playbook, write_proxy_upgrade_report
 
 
 def emit_json(value: object) -> None:
@@ -68,6 +69,21 @@ def build_parser() -> argparse.ArgumentParser:
     report_tx.add_argument("tx_hash")
     report_tx.add_argument("--case", required=True)
     report_tx.add_argument("--output")
+
+    playbook_parser = subparsers.add_parser("playbook", help="Run a problem-oriented investigation")
+    playbook_sub = playbook_parser.add_subparsers(dest="playbook_command", required=True)
+    proxy_upgrade = playbook_sub.add_parser(
+        "proxy-upgrade",
+        help="Find an EIP-1967 Upgraded event and extract upgrade-and-call selector evidence",
+    )
+    proxy_upgrade.add_argument("--case", required=True)
+    proxy_upgrade.add_argument("--proxy", required=True)
+    proxy_upgrade.add_argument("--from-block", type=int, default=0)
+    proxy_upgrade.add_argument("--to-block", type=int)
+    selection = proxy_upgrade.add_mutually_exclusive_group()
+    selection.add_argument("--latest", action="store_true", help="Select the latest upgrade event (default)")
+    selection.add_argument("--earliest", action="store_true", help="Select the earliest upgrade event")
+    proxy_upgrade.add_argument("--output", help="Optional Markdown report path")
     return parser
 
 
@@ -104,6 +120,22 @@ def run(args: argparse.Namespace) -> int:
             results.append({"transaction_hash": tx_hash.lower(), "path": str(path), "trace": args.trace})
         emit_json({"collected": results})
         return 0
+
+    if args.command == "playbook" and args.playbook_command == "proxy-upgrade":
+        client = RPCClient.from_case(config)
+        result = run_proxy_upgrade_playbook(
+            client,
+            store,
+            config,
+            args.proxy,
+            from_block=args.from_block,
+            to_block=args.to_block,
+            latest=not args.earliest,
+        )
+        report_path = write_proxy_upgrade_report(store, result, args.output)
+        result["report_path"] = str(report_path)
+        emit_json(result)
+        return 0 if result["passed"] else 2
 
     evidence = store.load_evidence(args.tx_hash)
     if args.command == "inspect" and args.inspect_command == "tx":
