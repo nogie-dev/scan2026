@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scan-chainctf"
+version = "0.1.0"
+description = "Read-only, evidence-first CLI for blockchain investigation CTFs"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "scan2026 contributors"}]
+license = {text = "MIT"}
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+
+[project.scripts]
+chainctf = "chainctf.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
